@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { Message } from "../hooks/useChatLLM";
 import ChatBox from "../ui/ChatBox";
 import Robot3D from "../ui/Robot3D";
+import SynopsisOverlay from "../ui/SynopsisOverlay";
 
 function getLastBotMessage(messages: Message[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -94,6 +95,9 @@ export default function Home() {
   const failAudioRef = useRef<HTMLAudioElement>(null);
   const openAudioRef = useRef<HTMLAudioElement>(null);
 
+  // 시놉시스 오버레이 상태
+  const [showSynopsis, setShowSynopsis] = useState(true);
+
   // ChatBox 상태를 Home에서 관리
   const chat = useChatLLM();
   const { messages, sendMessage, loading } = chat;
@@ -122,6 +126,14 @@ export default function Home() {
 
   // 로봇 말풍선 텍스트
   const balloonText = getLastBotMessage(messages);
+
+  if (showSynopsis) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <SynopsisOverlay onStart={() => setShowSynopsis(false)} />
+      </div>
+    );
+  }
 
   return (
     <>

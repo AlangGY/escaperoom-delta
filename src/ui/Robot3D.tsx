@@ -97,13 +97,18 @@ export default function Robot3D({
       {balloonTransition(
         (style, show) =>
           show && (
-            <animated.group position={[0.8, balloonY, 0.1]} scale={style.scale}>
+            <animated.group
+              position={[0.8, balloonY, 0.1]}
+              scale={style.scale}
+              layers={[1000]}
+            >
               {/* 텍스트(HTML) */}
               <Html
                 position={[0, verticalPadding, 0.01]}
                 center
                 distanceFactor={5}
                 style={{
+                  zIndex: 1000,
                   width: htmlWidthPx + "px",
                   maxWidth: htmlWidthPx + "px",
                   minWidth: htmlWidthPx + "px",
