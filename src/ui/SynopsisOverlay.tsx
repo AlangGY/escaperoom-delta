@@ -66,6 +66,9 @@ export default function SynopsisOverlay({ onStart }: SynopsisOverlayProps) {
       >
         게임 시작
       </button>
+      <footer style={{ marginTop: 40, fontSize: 15, color: "#bbb" }}>
+        © 2025 AlangGY. All rights reserved.
+      </footer>
     </div>
   );
 }
