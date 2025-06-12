@@ -3,15 +3,29 @@
 import Door3D from "@/ui/Door3D";
 import { Canvas } from "@react-three/fiber";
 import { useRef, useState } from "react";
+import { Message } from "../hooks/useChatLLM";
 import ChatBox from "../ui/ChatBox";
 import Robot3D from "../ui/Robot3D";
+
+function getLastBotMessage(messages: Message[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].sender === "bot") return messages[i].text;
+  }
+  return "당신인가. 이번엔 무슨 질문을 하러 왔지?";
+}
 
 type ThreeSceneProps = {
   isOpen: boolean;
   isWrong: boolean;
+  balloonText: string;
   onRobotClick: () => void;
 };
-function ThreeScene({ isOpen, isWrong, onRobotClick }: ThreeSceneProps) {
+function ThreeScene({
+  isOpen,
+  isWrong,
+  balloonText,
+  onRobotClick,
+}: ThreeSceneProps) {
   return (
     <Canvas
       camera={{ position: [0, 2, 7], fov: 50 }}
@@ -41,8 +55,6 @@ function ThreeScene({ isOpen, isWrong, onRobotClick }: ThreeSceneProps) {
         castShadow
         target-position={[0, -1.2, 2]}
       />
-      {/* 로봇 위 천장 스포트라이트 */}
-
       {/* 바닥 */}
       <mesh
         receiveShadow
@@ -69,33 +81,35 @@ function ThreeScene({ isOpen, isWrong, onRobotClick }: ThreeSceneProps) {
       </mesh>
       {/* 문, 로봇 */}
       <Door3D isOpen={isOpen} isWrong={isWrong} />
-      <Robot3D
-        onClick={onRobotClick}
-        balloonText="당신인가. 이번엔 무슨 질문을 하러 왔지?"
-      />
+      <Robot3D onClick={onRobotClick} balloonText={balloonText} />
     </Canvas>
   );
 }
 
+import { useChatLLM } from "../hooks/useChatLLM";
+
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
-  const [answer, setAnswer] = useState("");
-  const [showEnding, setShowEnding] = useState(false);
   const [isWrong, setIsWrong] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-
   const failAudioRef = useRef<HTMLAudioElement>(null);
   const openAudioRef = useRef<HTMLAudioElement>(null);
 
-  const handleAnswer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (answer === "열쇠") {
+  // ChatBox 상태를 Home에서 관리
+  const chat = useChatLLM();
+  const { messages, sendMessage, loading } = chat;
+  const [isSolved, setIsSolved] = useState(false);
+
+  // 정답 체크 및 문 열림 처리
+  const handleSend = (text: string) => {
+    if (!text.trim() || loading || isSolved) return;
+    sendMessage(text);
+    if (text.trim() === "열쇠") {
+      setIsSolved(true);
       setIsOpen(true);
       if (openAudioRef.current) {
         openAudioRef.current.currentTime = 0;
         openAudioRef.current.play();
       }
-      setTimeout(() => setShowEnding(true), 1500);
     } else {
       setIsWrong(true);
       if (failAudioRef.current) {
@@ -106,6 +120,9 @@ export default function Home() {
     }
   };
 
+  // 로봇 말풍선 텍스트
+  const balloonText = getLastBotMessage(messages);
+
   return (
     <>
       <audio ref={failAudioRef} src="/fail.mp3" preload="auto" />
@@ -115,53 +132,20 @@ export default function Home() {
         <ThreeScene
           isOpen={isOpen}
           isWrong={isWrong}
-          onRobotClick={() => setIsChatOpen(true)}
+          balloonText={balloonText}
+          onRobotClick={() => {}}
         />
-        {/* Floating 정답 입력창 */}
-        {!showEnding ? (
-          <form
-            onSubmit={handleAnswer}
-            className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 bg-white/80 rounded-xl shadow-lg px-4 py-2 md:px-6 md:py-4 flex gap-2 items-center backdrop-blur"
-          >
-            <input
-              type="text"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="정답을 입력하세요"
-              className="border rounded px-4 py-2 text-sm md:text-lg bg-white/80 text-black"
-              disabled={isOpen}
-            />
-            <button
-              type="submit"
-              className="bg-black text-white px-4 py-2 rounded text-lg text-nowrap"
-              disabled={isOpen}
-            >
-              제출
-            </button>
-          </form>
-        ) : (
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 text-2xl font-bold text-green-700 bg-white/80 rounded-xl shadow-lg px-8 py-6 backdrop-blur">
-            문이 열렸습니다! 축하합니다 🎉
-          </div>
-        )}
-        {/* 챗봇 오버레이 */}
-        {isChatOpen && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg min-w-[80vw] md:min-w-[50vw] h-[600px] flex flex-col">
-              <div className="flex justify-end p-2">
-                <button
-                  onClick={() => setIsChatOpen(false)}
-                  className="text-gray-500 hover:text-gray-800 text-xl"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <ChatBox onClose={() => setIsChatOpen(false)} />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* 챗봇 대화창 항상 표시 */}
+        <div className="fixed bottom-8 right-8 z-50 w-[360px] max-w-[90vw] overflow-hidden  bg-white rounded-xl shadow-xl flex flex-col border border-gray-200">
+          <ChatBox
+            messages={messages}
+            sendMessage={handleSend}
+            loading={loading}
+            isSolved={isSolved}
+            answer="열쇠"
+            endingMessage="문이 열렸습니다! 축하합니다 🎉"
+          />
+        </div>
       </div>
     </>
   );

@@ -4,8 +4,9 @@ import {
   useSpring,
   useTransition,
 } from "@react-spring/three";
-import { Text } from "@react-three/drei";
-import { useRef, useState } from "react";
+import { Html } from "@react-three/drei";
+import { marked } from "marked";
+import { useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 interface Robot3DProps {
@@ -19,6 +20,17 @@ export default function Robot3D({
 }: Robot3DProps) {
   const group = useRef<THREE.Group>(null!);
   const [hovered, setHovered] = useState(false);
+  const [htmlHeight, setHtmlHeight] = useState(0.6); // 3D 단위로 변환된 기본값
+  const textRef = useRef<HTMLDivElement>(null);
+
+  const maxHtmlPxHeight = 320; // 최대 픽셀 높이
+  const maxHtml3DHeight = maxHtmlPxHeight / 200; // 3D 단위로 변환
+
+  useLayoutEffect(() => {
+    if (textRef.current) {
+      setHtmlHeight(textRef.current.offsetHeight / 200); // 3D 단위로 변환(조정 필요)
+    }
+  }, [balloonText]);
 
   // 커서 스타일 변경
   if (typeof window !== "undefined") {
@@ -58,10 +70,20 @@ export default function Robot3D({
   const padding = 0.3;
   const minWidth = 0.9;
   const maxWidth = 2.2;
+  const verticalPadding = 0.05;
   const textWidth = Math.min(
     Math.max(minWidth, balloonText.length * fontSize * 0.6 + padding),
     maxWidth
   );
+  const baseHeight = 0.0;
+  const balloonHeight = Math.min(
+    Math.max(baseHeight, htmlHeight) + verticalPadding * 2,
+    maxHtml3DHeight + verticalPadding * 2
+  );
+  const balloonY = 1.6 + (balloonHeight - baseHeight) / 2;
+
+  const pxPer3D = 200; // 3D 단위 1 = 200px
+  const htmlWidthPx = textWidth * pxPer3D;
 
   return (
     <animated.group
@@ -75,38 +97,42 @@ export default function Robot3D({
       {balloonTransition(
         (style, show) =>
           show && (
-            <animated.group position={[0.8, 1.8, 0.1]} scale={style.scale}>
-              <animated.mesh>
-                <planeGeometry args={[textWidth, 0.35]} />
-                <animated.meshStandardMaterial
-                  color="#fff"
-                  roughness={0.5}
-                  metalness={0.1}
-                  transparent
-                  opacity={style.opacity}
-                />
-              </animated.mesh>
-              {/* 꼬리 */}
-              <animated.mesh position={[-0.3, -0.18, 0]}>
-                <sphereGeometry args={[0.03, 8, 8]} />
-                <animated.meshStandardMaterial
-                  color="#fff"
-                  transparent
-                  opacity={style.opacity}
-                />
-              </animated.mesh>
-              {/* 텍스트 */}
-              <Text
-                position={[0, 0, 0.01]}
-                fontSize={fontSize}
-                color="#222"
-                anchorX="center"
-                anchorY="middle"
-                maxWidth={textWidth - 0.2}
-                textAlign="center"
+            <animated.group position={[0.8, balloonY, 0.1]} scale={style.scale}>
+              {/* 텍스트(HTML) */}
+              <Html
+                position={[0, verticalPadding, 0.01]}
+                center
+                distanceFactor={5}
+                style={{
+                  width: htmlWidthPx + "px",
+                  maxWidth: htmlWidthPx + "px",
+                  minWidth: htmlWidthPx + "px",
+                  background: "white",
+                  borderRadius: "10px",
+                  padding: "10px",
+                }}
               >
-                {balloonText}
-              </Text>
+                <div
+                  ref={textRef}
+                  style={{
+                    color: "#222",
+                    fontSize: 18,
+                    fontWeight: 400,
+                    lineHeight: 1.5,
+                    textAlign: "center",
+                    whiteSpace: "pre-line",
+                    wordBreak: "keep-all",
+                    maxHeight: maxHtmlPxHeight,
+                    overflowY: "auto",
+                    width: "100%",
+                    maxWidth: "100%",
+                    minWidth: "100%",
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: marked.parse(balloonText),
+                  }}
+                />
+              </Html>
             </animated.group>
           )
       )}
